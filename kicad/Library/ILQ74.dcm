@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP ILQ74
+D DIP16, DC Quad Optocoupler
+K NPN DC Quad Optocoupler
+F http://www.farnell.com/datasheets/6513.pdf
+$ENDCMP
+#
+#End Doc Library

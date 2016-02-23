@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP ILQ74
+D DIP16, DC Quad Optocoupler, Vce 35V, CTR 50-300%
+K NPN DC Quad Optocoupler
+F http://www.soselectronic.cz/a_info/resource/d/pc817.pdf
+$ENDCMP
+#
+#End Doc Library

@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP TMR_3-1221
+D Traco TMR 3-1221
+K Isolation DC-DC Converter
+F https://www.farnell.com/datasheets/1864232.pdf
+$ENDCMP
+#
+#End Doc Library
