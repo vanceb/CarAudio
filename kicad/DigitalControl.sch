@@ -91,13 +91,13 @@ F 3 "" H 5350 4650 50  0000 L CNN
 	4    5350 4650
 	1    0    0    -1  
 $EndComp
-Text HLabel 3450 2750 0    60   Input ~ 0
-SCL
-Text HLabel 3450 3350 0    60   Input ~ 0
-SDA
-Text HLabel 3450 3950 0    60   Input ~ 0
-CS
 Text HLabel 3450 4550 0    60   Input ~ 0
+SCL
+Text HLabel 3450 3950 0    60   Input ~ 0
+SDA
+Text HLabel 3450 3350 0    60   Input ~ 0
+CS
+Text HLabel 3450 2750 0    60   Input ~ 0
 MUTE
 Text HLabel 3450 5150 0    60   Input ~ 0
 CTRL_GND
@@ -221,10 +221,10 @@ F 3 "" H 6500 4400 50  0000 C CNN
 	-1   0    0    1   
 $EndComp
 $Comp
-L +5VD #PWR09
+L +5VD #PWR011
 U 1 1 56CAE58F
 P 7150 2400
-F 0 "#PWR09" H 7150 2250 50  0001 C CNN
+F 0 "#PWR011" H 7150 2250 50  0001 C CNN
 F 1 "+5VD" H 7150 2540 50  0000 C CNN
 F 2 "" H 7150 2400 50  0000 C CNN
 F 3 "" H 7150 2400 50  0000 C CNN
@@ -261,10 +261,10 @@ Wire Wire Line
 Wire Wire Line
 	5950 2950 5950 5150
 $Comp
-L GNDD #PWR010
+L GNDD #PWR012
 U 1 1 56CAEA1B
 P 5950 5150
-F 0 "#PWR010" H 5950 4900 50  0001 C CNN
+F 0 "#PWR012" H 5950 4900 50  0001 C CNN
 F 1 "GNDD" H 5950 5000 50  0000 C CNN
 F 2 "" H 5950 5150 50  0000 C CNN
 F 3 "" H 5950 5150 50  0000 C CNN
@@ -280,12 +280,12 @@ Connection ~ 5950 4150
 Wire Wire Line
 	5650 4750 5950 4750
 Connection ~ 5950 4750
-Text HLabel 7600 2750 2    60   Input ~ 0
-SCL_ISOLATED
-Text HLabel 7600 3350 2    60   Input ~ 0
-SDA_ISOLATED
-Text HLabel 7600 3950 2    60   Input ~ 0
-CS_ISOLATED
 Text HLabel 7600 4550 2    60   Input ~ 0
+SCL_ISOLATED
+Text HLabel 7600 3950 2    60   Input ~ 0
+SDA_ISOLATED
+Text HLabel 7600 3350 2    60   Input ~ 0
+CS_ISOLATED
+Text HLabel 7600 2750 2    60   Input ~ 0
 MUTE_ISOLATED
 $EndSCHEMATC
