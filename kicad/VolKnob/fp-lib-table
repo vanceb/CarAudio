@@ -1,0 +1,5 @@
+(fp_lib_table
+  (lib (name Rotary_Encoder)(type KiCad)(uri /Users/vance/code/CarAudio/kicad/Library/Rotary_Encoder.pretty)(options "")(descr ""))
+  (lib (name JST-RA)(type KiCad)(uri /Users/vance/code/CarAudio/kicad/Library/JST-RA.pretty)(options "")(descr ""))
+  (lib (name NeoPixel)(type KiCad)(uri /Users/Vance/code/CarAudio/kicad/Library/NeoPixel.pretty)(options "")(descr ""))
+)
