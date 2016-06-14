@@ -1,4 +1,4 @@
-update=Monday, 22 February 2016 'pmt' 20:44:31
+update=Tuesday, 14 June 2016 'pmt' 12:24:39
 version=1
 last_client=kicad
 [pcbnew]
@@ -62,3 +62,4 @@ LibName30=Library/opa1664
 LibName31=Library/ILQ74
 LibName32=Library/tmr_3-1221
 LibName33=Library/REG_7805
+LibName34=Library/buck_converter
