@@ -3,4 +3,5 @@
   (lib (name JST-RA)(type KiCad)(uri /Users/vance/code/CarAudio/kicad/Library/JST-RA.pretty)(options "")(descr ""))
   (lib (name NeoPixel)(type KiCad)(uri /Users/Vance/code/CarAudio/kicad/Library/NeoPixel.pretty)(options "")(descr ""))
   (lib (name jumpers)(type KiCad)(uri /Users/vance/code/CarAudio/kicad/Library/jumpers.pretty)(options "")(descr ""))
+  (lib (name SMD_LED)(type KiCad)(uri /Users/vance/code/CarAudio/kicad/Library/SMD_LED.pretty)(options "")(descr ""))
 )
