@@ -1,12 +1,12 @@
 //#include <avr/interrupt.h>
 #include <Adafruit_NeoPixel.h>
 
-#define PUSH_BUTTON 8
-#define ROTARY_A 7
-#define ROTARY_B 6
-#define NEO_PIN 5
+#define PUSH_BUTTON 3
+#define ROTARY_A 9
+#define ROTARY_B 10
+#define NEO_PIN 4
 #define NUM_PIXELS 12
-#define LED_PIN 3
+#define LED_PIN A3
 
 #define DEBUG 1
 
@@ -16,7 +16,7 @@ int spin_count = 0;
 // Constants and variables used for debounce
 #define CHECK_MS 1
 #define DEBOUNCE_MS 1
-#define TURN_MULTIPLIER 5
+#define TURN_MULTIPLIER 3
 
 volatile static uint8_t debounced_position = 0;
 volatile static int16_t turned_by = 0;
@@ -43,10 +43,14 @@ void setup() {
     #endif
     log("Performing setup");
 
+    // Setup the LED Enable
+    pinMode(A4, OUTPUT);
+    digitalWrite(A4, HIGH);
+  
     // Setup pins
-    pinMode(PUSH_BUTTON, INPUT_PULLUP);
-    pinMode(ROTARY_A, INPUT_PULLUP);
-    pinMode(ROTARY_B, INPUT_PULLUP);
+    pinMode(PUSH_BUTTON, INPUT);
+    pinMode(ROTARY_A, INPUT);
+    pinMode(ROTARY_B, INPUT);
 
     // Setup Timer Interrupts
     cli(); // Disable interrupts
@@ -74,7 +78,6 @@ void setup() {
 
     // Turn the LED on
     pinMode(LED_PIN, OUTPUT);
-    digitalWrite(LED_PIN, HIGH);
 }
 
 void updateDisplay() {
@@ -125,6 +128,7 @@ void process_input() {
 
 void button() {
     log("Button pressed");
+    digitalWrite(LED_PIN, !digitalRead(LED_PIN));
 }
 
 void spin() {
@@ -168,20 +172,20 @@ uint8_t state (uint8_t a, uint8_t b) {
 int8_t direction (uint8_t old_state, uint8_t new_state) {
     switch (old_state) {
         case 0:
-          if (new_state == 2) return 1;
-          if (new_state == 1) return -1;
+          if (new_state == 2) return -1;
+          if (new_state == 1) return 1;
           break;
         case 1:
-          if (new_state == 0) return 1;
-          if (new_state == 3) return -1;
+          if (new_state == 0) return -1;
+          if (new_state == 3) return 1;
           break;
         case 2:
-          if (new_state == 3) return 1;
-          if (new_state == 0) return -1;
+          if (new_state == 3) return -1;
+          if (new_state == 0) return 1;
           break;
         case 3:
-          if (new_state == 1) return 1;
-          if (new_state == 2) return -1;
+          if (new_state == 1) return -1;
+          if (new_state == 2) return 1;
           break;
         default:
           break;
