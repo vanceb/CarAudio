@@ -21,17 +21,18 @@ void setup() {
   digitalWrite(A4, HIGH);
   
   // initialize pins for output
-  pinMode(A0, OUTPUT);
-  pinMode(A1, OUTPUT);
-  pinMode(A2, OUTPUT);
-  pinMode(A3, OUTPUT);
-  pinMode(A5, OUTPUT);
-  pinMode(0, OUTPUT);
-  pinMode(1, OUTPUT);
-  pinMode(5, OUTPUT);
-  pinMode(6, OUTPUT);
-  pinMode(11, OUTPUT);
-  pinMode(12, OUTPUT);
+  pinMode(A0, OUTPUT); // Source 2 Enable
+  pinMode(A1, OUTPUT); // Source 1 Enable
+  pinMode(A2, OUTPUT); // Notification LED 2
+  pinMode(A3, OUTPUT); // Notification LED 1
+  pinMode(A5, OUTPUT); // PA Enable
+  pinMode(0, OUTPUT);  // RX In
+  pinMode(1, OUTPUT);  // TX Out
+  pinMode(5, OUTPUT);  // CS
+  pinMode(6, OUTPUT);  // Pi Power
+  pinMode(7, OUTPUT);  // Onboard Audio Power
+  pinMode(11, OUTPUT); // MOSI
+  pinMode(12, OUTPUT); // MISO
   
 }
 
@@ -46,6 +47,7 @@ void loop() {
   digitalWrite(1, HIGH);   // turn the LED on (HIGH is the voltage level)
   digitalWrite(5, HIGH);   // turn the LED on (HIGH is the voltage level)
   digitalWrite(6, HIGH);   // turn the LED on (HIGH is the voltage level)
+  digitalWrite(7, HIGH);
   digitalWrite(11, HIGH);   // turn the LED on (HIGH is the voltage level)
   digitalWrite(12, HIGH);   // turn the LED on (HIGH is the voltage level)
   delay(1000);              // wait for a second
@@ -58,6 +60,7 @@ void loop() {
   digitalWrite(1, LOW);    // turn the LED off by making the voltage LOW
   digitalWrite(5, LOW);    // turn the LED off by making the voltage LOW
   digitalWrite(6, LOW);    // turn the LED off by making the voltage LOW
+  digitalWrite(7, LOW);
   digitalWrite(11, LOW);    // turn the LED off by making the voltage LOW
   digitalWrite(12, LOW);    // turn the LED off by making the voltage LOW
   delay(1000);              // wait for a second
