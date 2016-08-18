@@ -1,4 +1,4 @@
-#include <SPI.h>
+//#include <SPI.h>
 #include <Adafruit_NeoPixel.h>
 #include <avr/sleep.h>
 
@@ -45,6 +45,8 @@
 // Setting the volume on the PGA4311
 // Uses SPI
 #define PIN_CS 5
+#define PIN_MOSI 11
+#define PIN_CLK 13
 #define SPI_MAX_SPEED 6000000
 #define SPI_MODE SPI_MODE1
 #define ENDIAN MSBFIRST
@@ -107,8 +109,9 @@ unsigned long button_change_millis; // so we can determine length of press
 
 
 // Global variable to control volume
-uint8_t request_volume;
+uint8_t requested_volume;
 uint8_t current_volume;
+uint8_t requested_source;
 bool soft_mute;
 bool hard_mute;
 
@@ -199,6 +202,10 @@ void initialise_state() {
     button_change_millis = 0;
     count =  DEBOUNCE_COUNT;
     button_count =  DEBOUNCE_COUNT;
+
+    // Setup Audio
+    requested_volume = 64;
+    requested_source = 1;
 
     // Set up Neopixel
     colour = ring.Color(128,255,128);
@@ -390,10 +397,9 @@ void state_exit_standby() {
 void state_exit_on() {
     log("Exit state 'on'");
     // Apply hard mute to the volume control
-    digitalWrite(PIN_MUTE, LOW);
+    mute();
     // Turn off the audio stages
-    digitalWrite(PIN_PA_ON, LOW);
-    digitalWrite(PIN_AUDIO_PWR, HIGH);
+    audio_off();
 }
 
 // Enter states
@@ -438,10 +444,11 @@ void state_enter_standby() {
 void state_enter_on() {
     log("Enter state 'on'");
     // Turn on the audio stages
-    digitalWrite(PIN_AUDIO_PWR, HIGH);
-    digitalWrite(PIN_PA_ON, LOW);
+    audio_on();
     // Unmute the hard mute
-    digitalWrite(PIN_MUTE, HIGH);
+    unmute();
+    // Select Radio
+    audio_source(requested_source);
     // Reset some variables
     turned_by = 0; // Ignore any rotation whilst in standby
     turned_while_pressed = false;
@@ -507,14 +514,14 @@ void state_run_on() {
             turned_while_pressed = false;
         } else {
             // Change the volume
-            int16_t vol = request_volume + turned_by * TURN_MULTIPLIER;
+            int16_t vol = requested_volume + turned_by * TURN_MULTIPLIER;
             if (vol > 255) {
                 vol = 255;
             } else if (vol < 0) {
                 vol = 0;
             }
-            request_volume = (uint8_t)vol;
-            //fade(request_volume);
+            requested_volume = (uint8_t)vol;
+            fade(requested_volume);
         }
     }
     // Reset the input states
@@ -644,14 +651,19 @@ void audio_source(uint8_t source) {
         digitalWrite(PIN_SOURCE_2, LOW);
         // fade on Source 1
         digitalWrite(PIN_SOURCE_1, HIGH);
-        fade(request_volume);
+        fade(requested_volume);
     } else if (source == 2) {
         // fade off Source 1
         fade(0);
         digitalWrite(PIN_SOURCE_1, LOW);
         // fade on Source 2
         digitalWrite(PIN_SOURCE_2, HIGH);
-        fade(request_volume);
+        fade(requested_volume);
+    } else {
+        // Both off
+        fade(0);
+        digitalWrite(PIN_SOURCE_1, LOW);
+        digitalWrite(PIN_SOURCE_2, LOW);
     }
 }
 
@@ -667,7 +679,7 @@ void fade(uint8_t to_volume) {
         }
 }
 void audio_volume(uint8_t volume) {
-    request_volume = volume;
+    requested_volume = volume;
     if(volume == 0){
         soft_mute = true;
     } else {
@@ -693,15 +705,37 @@ void unmute() {
 
 
 void set_volume(uint8_t lf, uint8_t rf, uint8_t lr, uint8_t rr) {
+    /*  Need to bitbang the SPI as conflict of SS pin...
+
+    //Need to select pin 16 (D10) as an output otherwise we become a slave
+    pinMode(10, OUTPUT);
     pinMode(PIN_CS, OUTPUT);
+    SPI.beginTransaction(SPISettings(SPI_MAX_SPEED, ENDIAN, SPI_MODE));
+    //SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
     digitalWrite(PIN_CS, LOW); //Chip Select
-    SPI.beginTransaction(SPISettings(SPI_MAX_SPEED, SPI_MODE, ENDIAN));
     SPI.transfer(lf); // CHannel 4
     SPI.transfer(lr);
     SPI.transfer(rf);
     SPI.transfer(rr);
     digitalWrite(PIN_CS, HIGH);
     SPI.endTransaction();
+    // Change it back to input
+    pinMode(10, INPUT);
+
+    */
+
+    pinMode(PIN_CS, OUTPUT);
+    pinMode(PIN_MOSI, OUTPUT);
+    pinMode(PIN_CLK, OUTPUT);
+    // Chip Select
+    digitalWrite(PIN_CS, LOW);
+    // Shift out the data values
+    shiftOut(PIN_MOSI, PIN_CLK, MSBFIRST, lf);
+    shiftOut(PIN_MOSI, PIN_CLK, MSBFIRST, lr);
+    shiftOut(PIN_MOSI, PIN_CLK, MSBFIRST, rf);
+    shiftOut(PIN_MOSI, PIN_CLK, MSBFIRST, rr);
+    // De-assert the Chip Select
+    digitalWrite(PIN_CS, HIGH);
 }
 
 /**************************************************************************
@@ -714,12 +748,12 @@ void updateDisplay() {
     switch(power_state) {
         case on:
           for (int i = 0; i < NUM_PIXELS; i++) {
-            if ( request_volume > (i * 255 / NUM_PIXELS)) {
+            if ( requested_volume > (i * 255 / NUM_PIXELS)) {
               ring.setPixelColor(i, colour);
             } else {
               ring.setPixelColor(i,0);
             }
-            ring.setBrightness(request_volume);
+            ring.setBrightness(requested_volume);
             ring.show();
           }
           break;
