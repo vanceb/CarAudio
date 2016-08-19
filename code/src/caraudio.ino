@@ -34,6 +34,7 @@
 // Sensing
 #define PIN_IGNITION 2
 #define SHUTDOWN_DELAY 30000 // Decide to shutdown after ignition loss of 30 seconds
+#define AUTO_SHUTDOWN_PERIOD 3600000 // 1 hour
 
 // Notify
 #define PIN_LED_ENABLE A4 // Provides the earth for other debug LEDs
@@ -107,13 +108,15 @@ volatile static enum button_state pressed;
 volatile bool turned_while_pressed;
 unsigned long button_change_millis; // so we can determine length of press
 
+// should we be on whilst the ignition is off?
+unsigned long auto_shutdown_millis;
 
 // Global variable to control volume
 uint8_t requested_volume;
 uint8_t current_volume;
 uint8_t requested_source;
-bool soft_mute;
-bool hard_mute;
+bool soft_muted;
+bool hard_muted;
 
 
 // Buffers for Serial Messages
@@ -155,31 +158,29 @@ void initialise_pins() {
 
     // Setup the control pins
     pinMode(PIN_AUDIO_PWR, OUTPUT);
-    digitalWrite(PIN_AUDIO_PWR, HIGH); // Audio processing off
     pinMode(PIN_PA_ON, OUTPUT);
-    digitalWrite(PIN_PA_ON, LOW); // Power Amp off
     pinMode(PIN_PI_PWR, OUTPUT);
-    digitalWrite(PIN_PI_PWR, HIGH);  // Pi off
     pinMode(PIN_SOURCE_1, OUTPUT);
-    digitalWrite(PIN_SOURCE_1, LOW); // Source 1 off
     pinMode(PIN_SOURCE_2, OUTPUT);
-    digitalWrite(PIN_SOURCE_2, LOW); // Source 2 off
     pinMode(PIN_MUTE, OUTPUT);
-    digitalWrite(PIN_MUTE, LOW); // Hard mute the volume control
+    audio_off();
+    pi_off();
 
     // Setup the input Sensing
     pinMode(PIN_IGNITION, INPUT);
 
-    // Setup volume control pins
+    // Setup volume control knob pins
     pinMode(PIN_PUSH, INPUT);
     pinMode(PIN_ROTARY_A, INPUT);
     pinMode(PIN_ROTARY_B, INPUT);
 
-    // Initialise the SPI so we can talk to the volume control
-    //SPI.begin();
-
     // Initialise the Neopixel ring
     ring.begin();
+
+    // Initialise the SPI so we can talk to the PGA4311 volume control
+    pinMode(PIN_CS, OUTPUT);
+    pinMode(PIN_MOSI, OUTPUT);
+    pinMode(PIN_CLK, OUTPUT);
 
     // We don't use the ADC so power it down
     ADCSRA = 0;
@@ -189,6 +190,9 @@ void initialise_state() {
     // Machine state
     power_state = powering_up;
     next_power_state = pi_up;
+
+    // On without ignition
+    auto_shutdown_millis = 0;
 
     // volatile variables change in the interrupt routine...
     debounced_position = 0;
@@ -225,6 +229,8 @@ void initialise_state() {
 // so that we can wake with ignition or button press
 void go_to_sleep() {
     noInterrupts(); // Disable interrupts
+    // Set LED 1 to show we are asleep
+    digitalWrite(PIN_LED_1, HIGH);
     // Get ready to sleep
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
     sleep_enable();
@@ -247,6 +253,16 @@ void wake_up() {
     noInterrupts();
     detachInterrupt(digitalPinToInterrupt(PIN_IGNITION));
     detachInterrupt(digitalPinToInterrupt(PIN_PUSH));
+
+    // Check how we were woken
+    if (digitalRead(PIN_IGNITION) == false) {
+        // Assume we were woken by the PUSH_BUTTON
+        // So allow us to be on without the ignition
+        // For a set timeperiod at least
+        auto_shutdown_millis = millis() + AUTO_SHUTDOWN_PERIOD;
+    }
+    // Reset LED 1 to show we are awake
+    digitalWrite(PIN_LED_1, LOW);
 }
 
 // Enable timer interrupts so we can debounce the input controls
@@ -396,8 +412,6 @@ void state_exit_standby() {
 
 void state_exit_on() {
     log("Exit state 'on'");
-    // Apply hard mute to the volume control
-    mute();
     // Turn off the audio stages
     audio_off();
 }
@@ -445,9 +459,7 @@ void state_enter_on() {
     log("Enter state 'on'");
     // Turn on the audio stages
     audio_on();
-    // Unmute the hard mute
-    unmute();
-    // Select Radio
+    // Select Source
     audio_source(requested_source);
     // Reset some variables
     turned_by = 0; // Ignore any rotation whilst in standby
@@ -483,27 +495,23 @@ void state_run_pi_down() {
 
 void state_run_standby() {
     // Check for pushbutton press
-    if (pressed != off) {
+    if (pressed == long_press) {
+        auto_shutdown_millis = millis();
+        next_power_state = pi_down;
+    } else if (pressed != off) {
         next_power_state = on;
     }
-    // Check ignition
-    uint8_t ign = digitalRead(PIN_IGNITION);
-    if(ign == 1) {
-        change_state_millis = millis() + SHUTDOWN_DELAY;
-    } else {
-        if (millis() > change_state_millis) {
-            next_power_state = pi_down;
-        }
+    // Check shutdown
+    if (should_shutdown()) {
+        next_power_state = pi_down;
     }
 }
 
 void state_run_on() {
     // This is where the work should happen...
     // Check for state change
-    uint8_t ign = digitalRead(PIN_IGNITION);
-    if (ign == 0) {
-        next_power_state = standby;
-    } else if (pressed == long_press) {
+    if (should_shutdown() || pressed == long_press) {
+        auto_shutdown_millis = millis();
         next_power_state = standby;
     }
 
@@ -511,6 +519,7 @@ void state_run_on() {
     if (turned_by != 0) {
         if (turned_while_pressed == true) {
             // Switch source
+            toggle_source();
             turned_while_pressed = false;
         } else {
             // Change the volume
@@ -524,11 +533,31 @@ void state_run_on() {
             fade(requested_volume);
         }
     }
+    if (pressed == click) {
+        toggle_soft_mute();
+    }
     // Reset the input states
+    pressed = off;
     turned_by = 0;
 }
 
-
+bool should_shutdown() {
+    if (digitalRead(PIN_IGNITION) == 1) {
+        // Ignition is on so give ourselves a grace time
+        // in case Ignition is turned off briefly
+        auto_shutdown_millis = millis() + SHUTDOWN_DELAY;
+        return false;
+    } else {
+        // Deal with the case where we were turned on by the button
+        // Without the ignition being on
+        if (millis() < auto_shutdown_millis) {
+            return false;
+        } else {
+            // Timed out so allow shutdown
+            return true;
+        }
+    }
+}
 
 /******************************************************************************
 * Main Loops
@@ -623,6 +652,18 @@ void loop() {
 }
 
 /**************************************************************************
+* Power Control
+**************************************************************************/
+
+void pi_on() {
+    digitalWrite(PIN_PI_PWR, LOW);  // Pi on
+}
+
+void pi_off() {
+    digitalWrite(PIN_PI_PWR, HIGH);  // Pi off
+}
+
+/**************************************************************************
 * Audio control
 **************************************************************************/
 
@@ -632,9 +673,11 @@ void audio_on() {
     delay(AUDIO_SETTLE_MS);
     pinMode(PIN_PA_ON, OUTPUT);
     digitalWrite(PIN_PA_ON, HIGH);
+    hard_unmute();
 }
 
 void audio_off() {
+    hard_mute();
     pinMode(PIN_PA_ON, OUTPUT);
     digitalWrite(PIN_PA_ON, LOW);
     delay(AUDIO_SETTLE_MS);
@@ -643,6 +686,7 @@ void audio_off() {
 }
 
 void audio_source(uint8_t source) {
+    requested_source = source;
     pinMode(PIN_SOURCE_1, OUTPUT);
     pinMode(PIN_SOURCE_2, OUTPUT);
     if(source == 1) {
@@ -667,6 +711,24 @@ void audio_source(uint8_t source) {
     }
 }
 
+void toggle_source() {
+    if (requested_source == 1) {
+        audio_source(2);
+    } else {
+        audio_source(1);
+    }
+}
+
+void audio_volume(uint8_t volume) {
+    requested_volume = volume;
+    if(volume == 0){
+        soft_muted = true;
+    } else {
+        soft_muted = false;
+    }
+    fade(requested_volume);
+}
+
 void fade(uint8_t to_volume) {
         uint8_t change = 1; // be careful changing this from 1...
         if (to_volume < current_volume) {
@@ -674,27 +736,51 @@ void fade(uint8_t to_volume) {
         }
         while(current_volume != to_volume) {
             current_volume += change;
-            audio_volume(current_volume);
+            // To do change this to deal with balance and fade
+            set_volume(current_volume, current_volume, current_volume, current_volume);
             delay(4); //Control the slew rate
         }
 }
-void audio_volume(uint8_t volume) {
-    requested_volume = volume;
-    if(volume == 0){
-        soft_mute = true;
-    } else {
-        soft_mute = false;
-    }
-    // To do change this to deal with balance and fade
-    set_volume(volume, volume, volume, volume);
+
+void unmute() {
+    hard_unmute();
+    soft_unmute();
 }
 
-void mute() {
+void toggle_soft_mute() {
+    if (soft_muted) {
+        soft_unmute();
+    } else {
+        soft_mute();
+    }
+}
+
+void soft_mute() {
+    soft_muted = true;
+    // Flag if muted
+    digitalWrite(PIN_LED_2, soft_muted | hard_muted);
+    fade(0);
+}
+
+void soft_unmute() {
+    soft_muted = false;
+    // Flag if muted
+    digitalWrite(PIN_LED_2, soft_muted | hard_muted);
+    fade(requested_volume);
+}
+
+void hard_mute() {
+    hard_muted = true;
+    // Flag if muted
+    digitalWrite(PIN_LED_2, soft_muted | hard_muted);
     pinMode(PIN_MUTE, OUTPUT);
     digitalWrite(PIN_MUTE, LOW);
 }
 
-void unmute() {
+void hard_unmute() {
+    hard_muted = false;
+    // Flag if muted
+    digitalWrite(PIN_LED_2, soft_muted | hard_muted);
     pinMode(PIN_MUTE, OUTPUT);
     digitalWrite(PIN_MUTE, HIGH);
 }
@@ -727,6 +813,10 @@ void set_volume(uint8_t lf, uint8_t rf, uint8_t lr, uint8_t rr) {
     pinMode(PIN_CS, OUTPUT);
     pinMode(PIN_MOSI, OUTPUT);
     pinMode(PIN_CLK, OUTPUT);
+    // The PGA4311 clocks its data on the rising clock edge
+    // So need to set the clock pin low before we start
+    // https://www.arduino.cc/en/Reference/ShiftOut
+    digitalWrite(PIN_CLK, LOW);
     // Chip Select
     digitalWrite(PIN_CS, LOW);
     // Shift out the data values
